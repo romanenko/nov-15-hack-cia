@@ -2,15 +2,9 @@ import { Pool } from 'pg';
 import { UserProfile, XApiResponse } from './types';
 import { parseXDate } from './xApi';
 
-// Disable TLS certificate validation for development (required for Supabase)
-if (process.env.NODE_ENV !== 'production') {
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-}
-
-// Create a connection pool using standard pg library with Prisma pooled connection
+// Create a connection pool using Neon's pooled connection
 const pool = new Pool({
-  connectionString: process.env.POSTGRES_PRISMA_URL,
-  ssl: { rejectUnauthorized: false } // Required for Supabase's certificate chain
+  connectionString: process.env.NEON_DATABASE_URL
 });
 
 // Get user profile from database

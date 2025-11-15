@@ -69,15 +69,15 @@ bd show <issue-id>
 
 ### Database Connection
 
-- Uses PostgreSQL via Supabase
-- Connection: `POSTGRES_PRISMA_URL` environment variable
-- Library: `pg` (node-postgres), NOT `@vercel/postgres`
-- SSL: Configured with `rejectUnauthorized: false` for Supabase certificates
+- Uses PostgreSQL via Neon
+- Connection: `NEON_DATABASE_URL` environment variable
+- Library: `pg` (node-postgres)
+- SSL: Standard PostgreSQL SSL (sslmode=require)
 
 ### Environment Variables
 
 Located in `.env.development.local` (gitignored):
-- `POSTGRES_PRISMA_URL` - Database connection (pooled)
+- `NEON_DATABASE_URL` - Database connection (pooled)
 - `X_RAPIDAPI_HOST` - Twitter API host
 - `X_RAPIDAPI_KEY` - Twitter API key
 
@@ -89,7 +89,7 @@ Located in `.env.development.local` (gitignored):
 
 - **Framework**: Next.js 16.0.3 (App Router with Turbopack)
 - **React**: 19.2.0
-- **Database**: PostgreSQL (Supabase)
+- **Database**: PostgreSQL (Neon)
 - **Styling**: Tailwind CSS v4
 - **Database Client**: `pg` library
 

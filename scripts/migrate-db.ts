@@ -6,8 +6,7 @@ config({ path: '.env.development.local' });
 
 async function migrate() {
   const client = new Client({
-    connectionString: process.env.POSTGRES_PRISMA_URL,
-    ssl: { rejectUnauthorized: false }
+    connectionString: process.env.NEON_DATABASE_URL
   });
 
   try {

@@ -4,20 +4,14 @@ import { Pool } from 'pg';
 // Load environment variables
 config({ path: '.env.development.local' });
 
-// Disable TLS certificate validation for development
-if (process.env.NODE_ENV !== 'production') {
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-}
-
 async function testConnection() {
   const pool = new Pool({
-    connectionString: process.env.POSTGRES_PRISMA_URL,
-    ssl: { rejectUnauthorized: false }
+    connectionString: process.env.NEON_DATABASE_URL
   });
 
   try {
     console.log('Testing database connection...');
-    console.log('POSTGRES_PRISMA_URL:', process.env.POSTGRES_PRISMA_URL?.substring(0, 50) + '...');
+    console.log('NEON_DATABASE_URL:', process.env.NEON_DATABASE_URL?.substring(0, 50) + '...');
 
     const result = await pool.query('SELECT NOW() as current_time');
     console.log('✓ Connection successful!');
