@@ -39,6 +39,15 @@ else
     echo "ℹ️  No .env file found (this may be okay if you don't need environment variables)"
 fi
 
+# Copy .env.development.local if it exists in root
+if [ -n "$CONDUCTOR_ROOT_PATH" ] && [ -f "$CONDUCTOR_ROOT_PATH/.env.development.local" ]; then
+    echo "📋 Copying .env.development.local from root..."
+    cp "$CONDUCTOR_ROOT_PATH/.env.development.local" .env.development.local
+    echo "✓ .env.development.local copied"
+elif [ -n "$CONDUCTOR_ROOT_PATH" ]; then
+    echo "ℹ️  No .env.development.local found in root (this may be okay)"
+fi
+
 echo ""
 echo "✅ Workspace setup complete!"
 echo "   Run 'npm run dev' to start the development server"
