@@ -1,12 +1,13 @@
 import { config } from 'dotenv';
-import { createClient } from '@vercel/postgres';
+import { Client } from 'pg';
 
 // Load environment variables from .env.development.local
 config({ path: '.env.development.local' });
 
 async function migrate() {
-  const client = createClient({
-    connectionString: process.env.POSTGRES_URL
+  const client = new Client({
+    connectionString: process.env.POSTGRES_PRISMA_URL,
+    ssl: { rejectUnauthorized: false }
   });
 
   try {
@@ -14,19 +15,19 @@ async function migrate() {
     await client.connect();
 
     // Add updated_at column
-    await client.sql`
+    await client.query(`
       ALTER TABLE public.users
       ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-    `;
+    `);
 
     console.log('✓ Added updated_at column');
 
     // Update existing rows
-    await client.sql`
+    await client.query(`
       UPDATE public.users
       SET updated_at = created_at
       WHERE updated_at IS NULL
-    `;
+    `);
 
     console.log('✓ Updated existing rows');
 
