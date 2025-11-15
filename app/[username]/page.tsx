@@ -6,7 +6,8 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import ProfileHeader from '../components/ProfileHeader';
 import InsightCard from '../components/InsightCard';
-import { ProfileData, Insight, fetchProfileData, fetchInsights } from '../lib/mockData';
+import { ProfileData, Insight, fetchInsights } from '../lib/mockData';
+import { fetchProfileData } from '../lib/api';
 
 type PageState = 'loading' | 'error' | 'success';
 
@@ -24,10 +25,26 @@ export default function ProfilePage() {
     setError('');
 
     try {
-      const [profileData, insightsData] = await Promise.all([
-        fetchProfileData(username),
-        fetchInsights(username),
-      ]);
+      // Fetch real profile data from API
+      const apiResponse = await fetchProfileData(username);
+
+      if (!apiResponse.success || !apiResponse.data) {
+        throw new Error(apiResponse.error || 'Failed to fetch profile');
+      }
+
+      // Map database schema to frontend ProfileData interface
+      const profileData: ProfileData = {
+        username: apiResponse.data.handle,
+        name: apiResponse.data.name || '',
+        avatar: apiResponse.data.avatar || '',
+        bio: apiResponse.data.desc || '',
+        followers: apiResponse.data.sub_count,
+        following: apiResponse.data.friends_count,
+        verified: false, // TODO: Add verification field to DB if needed
+      };
+
+      // Still using mock data for insights
+      const insightsData = await fetchInsights(username);
 
       setProfile(profileData);
       setInsights(insightsData);
