@@ -1,14 +1,26 @@
-import { sql } from '@vercel/postgres';
+import { Pool } from 'pg';
 import { UserProfile, XApiResponse } from './types';
 import { parseXDate } from './xApi';
+
+// Disable TLS certificate validation for development (required for Supabase)
+if (process.env.NODE_ENV !== 'production') {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
+
+// Create a connection pool using standard pg library with Prisma pooled connection
+const pool = new Pool({
+  connectionString: process.env.POSTGRES_PRISMA_URL,
+  ssl: { rejectUnauthorized: false } // Required for Supabase's certificate chain
+});
 
 // Get user profile from database
 export async function getUserFromDb(handle: string): Promise<UserProfile | null> {
   try {
-    const { rows } = await sql<UserProfile>`
-      SELECT * FROM users WHERE handle = ${handle}
-    `;
-    return rows[0] || null;
+    const result = await pool.query<UserProfile>(
+      'SELECT * FROM users WHERE handle = $1',
+      [handle]
+    );
+    return result.rows[0] || null;
   } catch (error) {
     console.error('Database error (getUserFromDb):', error);
     throw new Error('Failed to fetch user from database');
@@ -18,8 +30,8 @@ export async function getUserFromDb(handle: string): Promise<UserProfile | null>
 // Save new user profile to database (upsert)
 export async function saveUserToDb(xData: XApiResponse): Promise<UserProfile> {
   try {
-    const { rows } = await sql<UserProfile>`
-      INSERT INTO users (
+    const result = await pool.query<UserProfile>(
+      `INSERT INTO users (
         handle,
         avatar,
         header_image,
@@ -33,18 +45,7 @@ export async function saveUserToDb(xData: XApiResponse): Promise<UserProfile> {
         created_at,
         updated_at
       ) VALUES (
-        ${xData.profile},
-        ${xData.avatar},
-        ${xData.header_image},
-        ${xData.desc},
-        ${xData.name},
-        ${xData.website || null},
-        ${xData.location || null},
-        ${xData.friends},
-        ${xData.sub_count},
-        ${xData.statuses_count},
-        ${parseXDate(xData.created_at)},
-        NOW()
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW()
       )
       ON CONFLICT (handle)
       DO UPDATE SET
@@ -58,10 +59,23 @@ export async function saveUserToDb(xData: XApiResponse): Promise<UserProfile> {
         sub_count = EXCLUDED.sub_count,
         statuses_count = EXCLUDED.statuses_count,
         updated_at = NOW()
-      RETURNING *
-    `;
+      RETURNING *`,
+      [
+        xData.profile,
+        xData.avatar,
+        xData.header_image,
+        xData.desc,
+        xData.name,
+        xData.website || null,
+        xData.location || null,
+        xData.friends,
+        xData.sub_count,
+        xData.statuses_count,
+        parseXDate(xData.created_at)
+      ]
+    );
 
-    return rows[0];
+    return result.rows[0];
   } catch (error) {
     console.error('Database error (saveUserToDb):', error);
     throw new Error('Failed to save user to database');
