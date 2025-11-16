@@ -1,122 +1,77 @@
-'use client';
+import { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { getProfileData } from '../lib/serverApi';
+import ProfileClient from './ProfileClient';
 
-import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
-import LoadingSpinner from '../components/LoadingSpinner';
-import ErrorMessage from '../components/ErrorMessage';
-import ProfileHeader from '../components/ProfileHeader';
-import InsightCard from '../components/InsightCard';
-import { ProfileData } from '../lib/mockData';
-import { fetchProfileData } from '../lib/api';
-import { GroupedInsight, Feature, FeaturesApiResponse } from '../lib/types';
+type Props = {
+  params: Promise<{ username: string }>;
+};
 
-type PageState = 'loading' | 'error' | 'success';
+// Generate dynamic metadata based on the profile data
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { username } = await params;
 
-// Helper function to group features by question
-function groupFeaturesByQuestion(features: Feature[]): GroupedInsight[] {
-  const grouped = new Map<string, string[]>();
+  // Fetch profile data for metadata
+  const profile = await getProfileData(username);
 
-  for (const feature of features) {
-    if (!feature.answer) continue; // Skip features without answers
-
-    const question = feature.name;
-    const answer = feature.answer;
-
-    if (!grouped.has(question)) {
-      grouped.set(question, []);
-    }
-    grouped.get(question)!.push(answer);
+  if (!profile) {
+    return {
+      title: `@${username} - Profile Not Found | CIA`,
+      description: `Unable to find profile information for @${username}.`,
+    };
   }
 
-  return Array.from(grouped.entries()).map(([question, answers]) => ({
-    question,
-    answers,
-  }));
+  const title = `${profile.name || username} (@${profile.handle}) - Intelligence Analysis | CIA`;
+  const description = profile.desc
+    ? `${profile.desc.substring(0, 155)}...`
+    : `Deep intelligence analysis of @${profile.handle} on X. View follower insights, engagement patterns, and comprehensive profile analysis.`;
+
+  return {
+    title,
+    description,
+    keywords: [
+      'X profile analysis',
+      username,
+      profile.handle,
+      'Twitter intelligence',
+      'social media analytics',
+    ],
+    authors: [{ name: 'CIA' }],
+    openGraph: {
+      title,
+      description,
+      type: 'profile',
+      siteName: 'CIA',
+      images: profile.avatar ? [
+        {
+          url: profile.avatar,
+          width: 400,
+          height: 400,
+          alt: `${profile.name || username} profile picture`,
+        }
+      ] : undefined,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: profile.avatar ? [profile.avatar] : undefined,
+      creator: `@${profile.handle}`,
+    },
+  };
 }
 
-export default function ProfilePage() {
-  const params = useParams();
-  const username = params.username as string;
+export default async function ProfilePage({ params }: Props) {
+  const { username } = await params;
 
-  const [state, setState] = useState<PageState>('loading');
-  const [profile, setProfile] = useState<ProfileData | null>(null);
-  const [insights, setInsights] = useState<GroupedInsight[]>([]);
-  const [error, setError] = useState<string>('');
+  // Fetch profile data server-side
+  const profile = await getProfileData(username);
 
-  const loadData = async () => {
-    setState('loading');
-    setError('');
-
-    try {
-      // Fetch real profile data from API
-      const apiResponse = await fetchProfileData(username);
-
-      if (!apiResponse.success || !apiResponse.data) {
-        throw new Error(apiResponse.error || 'Failed to fetch profile');
-      }
-
-      // Map database schema to frontend ProfileData interface
-      const profileData: ProfileData = {
-        username: apiResponse.data.handle,
-        name: apiResponse.data.name || '',
-        avatar: apiResponse.data.avatar || '',
-        bio: apiResponse.data.desc || '',
-        followers: apiResponse.data.sub_count,
-        following: apiResponse.data.friends_count,
-        verified: false, // TODO: Add verification field to DB if needed
-      };
-
-      // Fetch features from database
-      const featuresResponse = await fetch(`/api/features/${username}`);
-      const featuresData: FeaturesApiResponse = await featuresResponse.json();
-
-      if (!featuresData.success || !featuresData.data) {
-        // No features found - show empty state
-        setProfile(profileData);
-        setInsights([]);
-        setState('success');
-        return;
-      }
-
-      // Group features by question (name field)
-      const groupedInsights = groupFeaturesByQuestion(featuresData.data);
-
-      setProfile(profileData);
-      setInsights(groupedInsights);
-      setState('success');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
-      setState('error');
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, [username]);
-
-  if (state === 'loading') {
-    return <LoadingSpinner />;
+  // If profile doesn't exist, show 404
+  if (!profile) {
+    notFound();
   }
 
-  if (state === 'error') {
-    return <ErrorMessage message={error} onRetry={loadData} />;
-  }
-
-  return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black">
-      {profile && <ProfileHeader profile={profile} />}
-
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <h2 className="text-2xl font-bold text-black dark:text-white mb-6">
-          Intelligence Analysis
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {insights.map((insight, index) => (
-            <InsightCard key={index} insight={insight} />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+  // Pass the server-fetched data to the client component
+  return <ProfileClient username={username} initialProfile={profile} />;
 }
