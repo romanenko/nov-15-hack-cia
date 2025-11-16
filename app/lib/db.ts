@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { UserProfile, XApiResponse } from './types';
+import { UserProfile, XApiResponse, Feature } from './types';
 import { parseXDate } from './xApi';
 
 // Create a connection pool using Neon's pooled connection
@@ -85,4 +85,18 @@ export function isProfileStale(profile: UserProfile, maxAgeHours = 1): boolean {
   const hoursSinceUpdate = (now.getTime() - updated.getTime()) / (1000 * 60 * 60);
 
   return hoursSinceUpdate > maxAgeHours;
+}
+
+// Get features for a user from database
+export async function getFeaturesForUser(handle: string): Promise<Feature[]> {
+  try {
+    const result = await pool.query<Feature>(
+      'SELECT * FROM features WHERE handle = $1 ORDER BY id',
+      [handle]
+    );
+    return result.rows;
+  } catch (error) {
+    console.error('Database error (getFeaturesForUser):', error);
+    throw new Error('Failed to fetch features from database');
+  }
 }

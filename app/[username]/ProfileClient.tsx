@@ -5,8 +5,8 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import ProfileHeader from '../components/ProfileHeader';
 import InsightCard from '../components/InsightCard';
-import { ProfileData, Insight, fetchInsights } from '../lib/mockData';
-import { UserProfile } from '../lib/types';
+import { ProfileData } from '../lib/mockData';
+import { UserProfile, GroupedInsight, Feature, FeaturesApiResponse } from '../lib/types';
 
 type PageState = 'loading' | 'error' | 'success';
 
@@ -15,9 +15,31 @@ interface ProfileClientProps {
   initialProfile: UserProfile;
 }
 
+// Helper function to group features by question
+function groupFeaturesByQuestion(features: Feature[]): GroupedInsight[] {
+  const grouped = new Map<string, string[]>();
+
+  for (const feature of features) {
+    if (!feature.answer) continue; // Skip features without answers
+
+    const question = feature.name;
+    const answer = feature.answer;
+
+    if (!grouped.has(question)) {
+      grouped.set(question, []);
+    }
+    grouped.get(question)!.push(answer);
+  }
+
+  return Array.from(grouped.entries()).map(([question, answers]) => ({
+    question,
+    answers,
+  }));
+}
+
 export default function ProfileClient({ username, initialProfile }: ProfileClientProps) {
   const [state, setState] = useState<PageState>('loading');
-  const [insights, setInsights] = useState<Insight[]>([]);
+  const [insights, setInsights] = useState<GroupedInsight[]>([]);
   const [error, setError] = useState<string>('');
 
   // Map UserProfile (database schema) to ProfileData (frontend interface)
@@ -36,9 +58,21 @@ export default function ProfileClient({ username, initialProfile }: ProfileClien
     setError('');
 
     try {
-      // Fetch insights (currently using mock data)
-      const insightsData = await fetchInsights(username);
-      setInsights(insightsData);
+      // Fetch features from database
+      const featuresResponse = await fetch(`/api/features/${username}`);
+      const featuresData: FeaturesApiResponse = await featuresResponse.json();
+
+      if (!featuresData.success || !featuresData.data) {
+        // No features found - show empty state
+        setInsights([]);
+        setState('success');
+        return;
+      }
+
+      // Group features by question (name field)
+      const groupedInsights = groupFeaturesByQuestion(featuresData.data);
+
+      setInsights(groupedInsights);
       setState('success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
