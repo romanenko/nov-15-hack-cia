@@ -2,6 +2,7 @@ import { getUserFromDb, isProfileStale } from './db';
 import { fetchXProfile } from './xApi';
 import { saveUserToDb } from './db';
 import { UserProfile } from './types';
+import { triggerAiriaAgentAsync } from './airiaAgent';
 
 /**
  * Server-side function to get profile data
@@ -30,6 +31,10 @@ export async function getProfileData(username: string): Promise<UserProfile | nu
     // Step 4: Save to database (upsert)
     try {
       const savedProfile = await saveUserToDb(xData);
+
+      // Step 5: Trigger Airia intelligence agent (async, fire-and-forget)
+      triggerAiriaAgentAsync(username);
+
       return savedProfile;
     } catch (dbError) {
       console.error('[Server] Failed to save to database, returning API data:', dbError);

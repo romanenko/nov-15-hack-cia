@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { fetchXProfile, XApiError } from '@/app/lib/xApi';
 import { getUserFromDb, saveUserToDb, isProfileStale } from '@/app/lib/db';
 import { ProfileApiResponse } from '@/app/lib/types';
+import { triggerAiriaAgentAsync } from '@/app/lib/airiaAgent';
 
 export const dynamic = 'force-dynamic'; // Disable caching for this route
 
@@ -45,7 +46,10 @@ export async function GET(
     // Step 4: Save to database (upsert)
     const savedProfile = await saveUserToDb(xData);
 
-    // Step 5: Return fresh data
+    // Step 5: Trigger Airia intelligence agent (async, fire-and-forget)
+    triggerAiriaAgentAsync(username);
+
+    // Step 6: Return fresh data
     return NextResponse.json(
       {
         success: true,
@@ -102,6 +106,9 @@ export async function POST(
     console.log(`Force refreshing data for @${username}...`);
     const xData = await fetchXProfile(username);
     const savedProfile = await saveUserToDb(xData);
+
+    // Trigger Airia intelligence agent (async, fire-and-forget)
+    triggerAiriaAgentAsync(username);
 
     return NextResponse.json(
       {
