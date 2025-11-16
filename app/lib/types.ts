@@ -46,3 +46,24 @@ export interface ProfileApiResponse {
   error?: string;
   cached?: boolean; // Indicates if data came from DB or fresh fetch
 }
+
+// Feature Database Schema Type
+export interface Feature {
+  id: number;
+  handle: string;
+  name: string; // The question
+  answer: string | null;
+}
+
+// Grouped Insight for UI Display
+export interface GroupedInsight {
+  question: string;
+  answers: string[];
+}
+
+// Features API Response Type
+export interface FeaturesApiResponse {
+  success: boolean;
+  data?: Feature[];
+  error?: string;
+}
