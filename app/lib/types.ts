@@ -47,23 +47,44 @@ export interface ProfileApiResponse {
   cached?: boolean; // Indicates if data came from DB or fresh fetch
 }
 
-// Feature Database Schema Type
+// Feature Database Schema Type (with question join data)
 export interface Feature {
   id: number;
   handle: string;
-  name: string; // The question
+  question_slug: string;
+  question_text: string;  // from questions table join
   answer: string | null;
-}
-
-// Grouped Insight for UI Display
-export interface GroupedInsight {
-  question: string;
-  answers: string[];
+  research_run_id: number;
+  display_order: number;  // from questions table join
+  created_at: Date;       // when this feature was discovered
 }
 
 // Features API Response Type
 export interface FeaturesApiResponse {
   success: boolean;
   data?: Feature[];
+  error?: string;
+}
+
+// Linkup Research Types
+export interface ResearchProfile {
+  beliefs: string;
+  expertise: string;
+  voting_preferences: string;
+  relationship_with_risk: string;
+  unspoken_worldview: string;
+  projected_socioeconomic_class: string;
+}
+
+export interface LinkupResearchResponse {
+  biography: string;
+  profile: ResearchProfile;
+  confidence: string;
+  sources: string[];
+}
+
+export interface ResearchApiResponse {
+  success: boolean;
+  data?: LinkupResearchResponse;
   error?: string;
 }

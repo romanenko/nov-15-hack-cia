@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import ProfileHeader from '../components/ProfileHeader';
 import InsightCard from '../components/InsightCard';
+import ResearchStatus from '../components/ResearchStatus';
 import { ProfileData } from '../lib/mockData';
-import { UserProfile, GroupedInsight, Feature, FeaturesApiResponse } from '../lib/types';
+import { UserProfile, Feature, FeaturesApiResponse } from '../lib/types';
 
 type PageState = 'loading' | 'error' | 'success';
 
@@ -15,32 +16,11 @@ interface ProfileClientProps {
   initialProfile: UserProfile;
 }
 
-// Helper function to group features by question
-function groupFeaturesByQuestion(features: Feature[]): GroupedInsight[] {
-  const grouped = new Map<string, string[]>();
-
-  for (const feature of features) {
-    if (!feature.answer) continue; // Skip features without answers
-
-    const question = feature.name;
-    const answer = feature.answer;
-
-    if (!grouped.has(question)) {
-      grouped.set(question, []);
-    }
-    grouped.get(question)!.push(answer);
-  }
-
-  return Array.from(grouped.entries()).map(([question, answers]) => ({
-    question,
-    answers,
-  }));
-}
-
 export default function ProfileClient({ username, initialProfile }: ProfileClientProps) {
   const [state, setState] = useState<PageState>('loading');
-  const [insights, setInsights] = useState<GroupedInsight[]>([]);
+  const [features, setFeatures] = useState<Feature[]>([]);
   const [error, setError] = useState<string>('');
+  const [isPolling, setIsPolling] = useState(false);
 
   // Map UserProfile (database schema) to ProfileData (frontend interface)
   const profile: ProfileData = {
@@ -53,43 +33,59 @@ export default function ProfileClient({ username, initialProfile }: ProfileClien
     verified: false, // TODO: Add verification field to DB if needed
   };
 
-  const loadInsights = async () => {
-    setState('loading');
+  const loadFeatures = useCallback(async (silent = false) => {
+    if (!silent) {
+      setState('loading');
+    }
     setError('');
 
     try {
-      // Fetch features from database
+      // Fetch features from database (already sorted by display_order, deduped)
       const featuresResponse = await fetch(`/api/features/${username}`);
       const featuresData: FeaturesApiResponse = await featuresResponse.json();
 
       if (!featuresData.success || !featuresData.data) {
         // No features found - show empty state
-        setInsights([]);
+        setFeatures([]);
         setState('success');
         return;
       }
 
-      // Group features by question (name field)
-      const groupedInsights = groupFeaturesByQuestion(featuresData.data);
-
-      setInsights(groupedInsights);
+      setFeatures(featuresData.data);
       setState('success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
       setState('error');
     }
-  };
+  }, [username]);
+
+  // Handle research completion - reload features
+  const handleResearchComplete = useCallback(() => {
+    console.log('[ProfileClient] Research completed, reloading features...');
+    loadFeatures(true); // Silent reload
+  }, [loadFeatures]);
 
   useEffect(() => {
-    loadInsights();
-  }, [username]);
+    loadFeatures();
+  }, [username, loadFeatures]);
+
+  // Poll for new features while research is running
+  useEffect(() => {
+    if (!isPolling) return;
+
+    const pollInterval = setInterval(() => {
+      loadFeatures(true); // Silent reload to avoid UI flicker
+    }, 10000); // Poll every 10 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [isPolling, loadFeatures]);
 
   if (state === 'loading') {
     return <LoadingSpinner />;
   }
 
   if (state === 'error') {
-    return <ErrorMessage message={error} onRetry={loadInsights} />;
+    return <ErrorMessage message={error} onRetry={loadFeatures} />;
   }
 
   return (
@@ -97,15 +93,45 @@ export default function ProfileClient({ username, initialProfile }: ProfileClien
       <ProfileHeader profile={profile} />
 
       <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Research Status Banner */}
+        <ResearchStatus
+          username={username}
+          onResearchComplete={handleResearchComplete}
+        />
+
         <h2 className="text-2xl font-bold text-black dark:text-white mb-6">
           Intelligence Analysis
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {insights.map((insight, index) => (
-            <InsightCard key={index} insight={insight} />
-          ))}
-        </div>
+        {features.length === 0 ? (
+          <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-8 text-center">
+            <div className="text-zinc-400 dark:text-zinc-600 mb-2">
+              <svg
+                className="mx-auto h-12 w-12"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+              No Intelligence Data Yet
+            </h3>
+            <p className="text-sm text-zinc-500 dark:text-zinc-500">
+              Start research to generate comprehensive intelligence analysis
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {features.map((feature) => (
+              <InsightCard key={feature.question_slug} feature={feature} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
